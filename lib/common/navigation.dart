@@ -18,6 +18,14 @@ class Navigation {
     bool hasProxies = false,
   }) => [
       const NavigationItem(
+        icon: Icon(Icons.shield_rounded),
+        label: PageLabel.praxaHome,
+        view: PraxaHomeView(
+          key: GlobalObjectKey(PageLabel.praxaHome),
+        ),
+        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
+      ),
+      const NavigationItem(
         keep: false,
         icon: Icon(Icons.home_rounded),
         label: PageLabel.dashboard,
