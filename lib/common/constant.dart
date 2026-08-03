@@ -82,7 +82,7 @@ const viewModeColumnsMap = {
 // const toolsStoreKey = PageStorageKey<String>('tools');
 // const profilesStoreKey = PageStorageKey<String>('profiles');
 
-const defaultPrimaryColor = 0xFF03A9F4;
+const defaultPrimaryColor = 0xFF1E9BE0;
 
 double getWidgetHeight(num lines) => max(lines * 84 + (lines - 1) * 16, 0).ap;
 
@@ -90,13 +90,13 @@ const maxLength = 150;
 
 
 const defaultPrimaryColors = [
-  0xFF795548,
   defaultPrimaryColor,
-  0xFFFFFF00,
+  0xFF0A84FF,
+  0xFF00C2FF,
+  0xFF665390,
+  0xFF1DD1A1,
+  0xFF795548,
   0XFFBBC9CC,
-  0XFFABD397,
-  0XFFD8C0C3,
-  0XFF665390,
 ];
 
 const scriptTemplate = """
