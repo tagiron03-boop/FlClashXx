@@ -8,22 +8,24 @@
 // Блоки "подписка" и "активный сервер": подписка тянется из профиля Remnawave
 // (дни/статус) — пока помечено TODO и подключается на следующем шаге вместе с
 // провайдером профиля; активный сервер читается из реального выбора прокси.
- 
+
 import 'dart:io';
- 
+
 import 'package:flclashx/common/common.dart';
+import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
 import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
- 
+import 'package:intl/intl.dart';
+
 const _praxaBlue = Color(0xFF1E9BE0);
- 
+
 class PraxaHomeView extends ConsumerWidget {
   const PraxaHomeView({super.key});
- 
+
   void _toggleConnection(bool isStart) {
     if (Platform.isAndroid) {
       HapticFeedback.mediumImpact();
@@ -31,14 +33,14 @@ class PraxaHomeView extends ConsumerWidget {
     // Реальное переключение VPN через ядро.
     globalState.appController.updateStatus(!isStart);
   }
- 
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // РЕАЛЬНЫЙ статус: VPN запущен, если runTime != null.
     final isStart = ref.watch(
       runTimeProvider.select((state) => state != null),
     );
- 
+
     return CommonScaffold(
       title: 'PRAXA',
       body: SafeArea(
@@ -62,11 +64,11 @@ class PraxaHomeView extends ConsumerWidget {
     );
   }
 }
- 
+
 class _StatusLabel extends StatelessWidget {
   final bool isStart;
   const _StatusLabel({required this.isStart});
- 
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -93,13 +95,13 @@ class _StatusLabel extends StatelessWidget {
     );
   }
 }
- 
+
 class _ConnectButton extends StatelessWidget {
   final bool isStart;
   final VoidCallback onTap;
- 
+
   const _ConnectButton({required this.isStart, required this.onTap});
- 
+
   @override
   Widget build(BuildContext context) {
     final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
@@ -155,15 +157,44 @@ class _ConnectButton extends StatelessWidget {
     );
   }
 }
- 
-// Блок подписки. Данные (дни/статус) приходят из профиля Remnawave.
-// TODO(step-next): подключить провайдер текущего профиля и вытащить срок.
-class _SubscriptionCard extends StatelessWidget {
+
+// Блок подписки. РЕАЛЬНЫЕ данные из профиля Remnawave:
+// expire (дата окончания), total/upload/download (трафик).
+class _SubscriptionCard extends ConsumerWidget {
   const _SubscriptionCard();
- 
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final info = ref.watch(
+      currentProfileProvider.select((p) => p?.subscriptionInfo),
+    );
+
+    // Считаем оставшиеся дни из реального expire.
+    int? daysLeft;
+    String subtitle;
+    Color accent = _praxaBlue;
+
+    if (info == null || info.expire == 0) {
+      subtitle = info == null ? 'Добавьте подписку' : 'Бессрочная подписка';
+    } else {
+      final expireDate =
+          DateTime.fromMillisecondsSinceEpoch(info.expire * 1000);
+      final diff = expireDate.difference(DateTime.now());
+      daysLeft = diff.inDays;
+      if (daysLeft < 0) {
+        subtitle = 'Подписка истекла';
+        accent = const Color(0xFFe2504a);
+      } else if (daysLeft <= 3) {
+        subtitle = 'Осталось $daysLeft дн. · ${DateFormat('dd.MM.yyyy').format(expireDate)}';
+        accent = const Color(0xFFf0b429);
+      } else {
+        subtitle = 'Осталось $daysLeft дн. · ${DateFormat('dd.MM.yyyy').format(expireDate)}';
+      }
+    }
+
+    final expired = daysLeft != null && daysLeft < 0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Container(
@@ -171,19 +202,18 @@ class _SubscriptionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _praxaBlue.withValues(alpha: 0.25)),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.workspace_premium_rounded,
-                color: _praxaBlue, size: 24),
+            Icon(Icons.workspace_premium_rounded, color: accent, size: 24),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Подписка',
+                    expired ? 'Подписка' : 'Подписка активна',
                     style: TextStyle(
                       color: colorScheme.onSurface,
                       fontSize: 14,
@@ -191,7 +221,7 @@ class _SubscriptionCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Статус появится из профиля',
+                    subtitle,
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
                       fontSize: 12,
@@ -202,10 +232,10 @@ class _SubscriptionCard extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () {
-                // TODO(step-next): открыть экран тарифов / ссылку buyplan.
+                // TODO(step-5): открыть экран тарифов / ссылку buyplan.
               },
               style: FilledButton.styleFrom(
-                backgroundColor: _praxaBlue,
+                backgroundColor: accent,
                 foregroundColor: const Color(0xFF06121A),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -213,8 +243,8 @@ class _SubscriptionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Продлить',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(expired ? 'Оплатить' : 'Продлить',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -222,12 +252,12 @@ class _SubscriptionCard extends StatelessWidget {
     );
   }
 }
- 
+
 // Активный сервер: читается из реального выбора прокси.
 // Открытие списка серверов — на экране "Серверы" (следующий шаг).
 class _ActiveServerCard extends ConsumerWidget {
   const _ActiveServerCard();
- 
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -283,4 +313,3 @@ class _ActiveServerCard extends ConsumerWidget {
     );
   }
 }
- 
