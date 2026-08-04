@@ -466,6 +466,7 @@ enum GeodataLoader {
 
 enum PageLabel {
   praxaHome,
+  praxaServers,
   dashboard,
   proxies,
   profiles,
