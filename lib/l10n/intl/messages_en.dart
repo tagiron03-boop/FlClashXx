@@ -247,6 +247,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "cut": MessageLookupByLibrary.simpleMessage("Cut"),
     "dark": MessageLookupByLibrary.simpleMessage("Dark"),
     "dashboard": MessageLookupByLibrary.simpleMessage("Dashboard"),
+    "praxaHome": MessageLookupByLibrary.simpleMessage("Home"),
+    "praxaServers": MessageLookupByLibrary.simpleMessage("Servers"),
     "day": MessageLookupByLibrary.simpleMessage("day"),
     "days": MessageLookupByLibrary.simpleMessage("days"),
     "daysGenitive": MessageLookupByLibrary.simpleMessage("days"),
