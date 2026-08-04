@@ -26,6 +26,14 @@ class Navigation {
         modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
       ),
       const NavigationItem(
+        icon: Icon(Icons.public_rounded),
+        label: PageLabel.praxaServers,
+        view: PraxaServersView(
+          key: GlobalObjectKey(PageLabel.praxaServers),
+        ),
+        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
+      ),
+      const NavigationItem(
         keep: false,
         icon: Icon(Icons.home_rounded),
         label: PageLabel.dashboard,
