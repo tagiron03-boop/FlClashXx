@@ -1,0 +1,62 @@
+name: Собрать APK
+
+# Запускается вручную кнопкой во вкладке Actions
+on:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28c
+          add-to-path: true
+          link-to-sdk: true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          flutter-version: '3.44.4'
+          cache: true
+
+      - name: Flutter dependencies
+        run: |
+          flutter --version
+          flutter pub get
+
+      - name: Build (core + apk)
+        run: dart setup.dart android -v
+
+      - name: Найти APK
+        run: |
+          echo "=== Ищу собранные APK ==="
+          find . -name "*.apk" -type f 2>/dev/null
+
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakadu-apk
+          path: |
+            **/*.apk
+          if-no-files-found: error
+          overwrite: true
