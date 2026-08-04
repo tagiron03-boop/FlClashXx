@@ -45,7 +45,7 @@ jobs:
           flutter pub get
 
       - name: Build (core + apk)
-        run: dart setup.dart android -v
+        run: dart setup.dart android
 
       - name: Найти APK
         run: |
