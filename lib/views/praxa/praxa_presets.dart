@@ -18,16 +18,14 @@ import 'package:flclashx/enum/enum.dart';
 import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
+import 'package:flclashx/views/praxa/praxa_ru_rules.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const _praxaBlue = Color(0xFF1E9BE0);
 
-// Метка-идентификатор наших RU-правил, чтобы отличать их от чужих.
-const _ruRuleValues = [
-  'GEOIP,ru,DIRECT,no-resolve',
-  'GEOSITE,category-ru,DIRECT',
-];
+// Список RU-правил берётся из praxa_ru_rules.dart (зашит в приложение).
+const _ruRuleValues = praxaRuRuleValues;
 
 class PraxaPresets extends ConsumerWidget {
   const PraxaPresets({super.key});
@@ -39,43 +37,53 @@ class PraxaPresets extends ConsumerWidget {
 
     final ruRules = _ruRuleValues.map((v) => Rule.value(v)).toList();
 
-    // Берём уже добавленные правила, убираем наши старые (если были),
-    // ставим свежие RU-правила сверху.
-    final existing = profile.overrideData.rule.addedRules
-        .where((r) => !_ruRuleValues.contains(r.value))
-        .toList();
-
-    final newProfile = profile.copyWith(
-      overrideData: profile.overrideData.copyWith(
-        enable: true,
-        rule: profile.overrideData.rule.copyWith(
-          type: OverrideRuleType.added,
-          addedRules: [...ruRules, ...existing],
-        ),
-      ),
-    );
-
     globalState.appController.changeMode(Mode.rule);
-    globalState.appController.setProfile(newProfile);
-    globalState.appController.applyProfileDebounce();
+
+    // Правильный путь применения override-правил (как в override_profile.dart):
+    // updateProfile + setupClashConfigDebounce. НЕ setProfile/applyProfile —
+    // тот путь вызывает getConfig timeout.
+    ref.read(profilesProvider.notifier).updateProfile(
+          profile.id,
+          (state) {
+            final existing = state.overrideData.rule.addedRules
+                .where((r) => !_ruRuleValues.contains(r.value))
+                .toList();
+            return state.copyWith(
+              overrideData: state.overrideData.copyWith(
+                enable: true,
+                rule: state.overrideData.rule.copyWith(
+                  type: OverrideRuleType.added,
+                  addedRules: [...ruRules, ...existing],
+                ),
+              ),
+            );
+          },
+        );
+    globalState.appController.setupClashConfigDebounce();
   }
 
   // Всё через VPN: режим global, наши RU-правила убираем.
   void _applyGlobal(WidgetRef ref) {
     final profile = ref.read(currentProfileProvider);
-    if (profile != null) {
-      final cleaned = profile.overrideData.rule.addedRules
-          .where((r) => !_ruRuleValues.contains(r.value))
-          .toList();
-      final newProfile = profile.copyWith(
-        overrideData: profile.overrideData.copyWith(
-          rule: profile.overrideData.rule.copyWith(addedRules: cleaned),
-        ),
-      );
-      globalState.appController.setProfile(newProfile);
-      globalState.appController.applyProfileDebounce();
-    }
+
     globalState.appController.changeMode(Mode.global);
+
+    if (profile != null) {
+      ref.read(profilesProvider.notifier).updateProfile(
+            profile.id,
+            (state) {
+              final cleaned = state.overrideData.rule.addedRules
+                  .where((r) => !_ruRuleValues.contains(r.value))
+                  .toList();
+              return state.copyWith(
+                overrideData: state.overrideData.copyWith(
+                  rule: state.overrideData.rule.copyWith(addedRules: cleaned),
+                ),
+              );
+            },
+          );
+      globalState.appController.setupClashConfigDebounce();
+    }
   }
 
   @override
