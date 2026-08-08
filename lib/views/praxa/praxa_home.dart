@@ -12,9 +12,11 @@
 import 'dart:io';
 
 import 'package:flclashx/common/common.dart';
+import 'package:flclashx/enum/enum.dart';
 import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
+import 'package:flclashx/views/praxa/praxa_presets.dart';
 import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,8 +32,15 @@ class PraxaHomeView extends ConsumerWidget {
     if (Platform.isAndroid) {
       HapticFeedback.mediumImpact();
     }
-    // Реальное переключение VPN через ядро.
-    globalState.appController.updateStatus(!isStart);
+    // Реальное переключение VPN через ядро — тем же способом, что родная
+    // кнопка FlClashX: через debouncer с тегом updateStatus.
+    debouncer.call(
+      FunctionTag.updateStatus,
+      () {
+        globalState.appController.updateStatus(!isStart);
+      },
+      duration: commonDuration,
+    );
   }
 
   @override
@@ -41,19 +50,29 @@ class PraxaHomeView extends ConsumerWidget {
       runTimeProvider.select((state) => state != null),
     );
 
+    // Есть ли активная подписка. Без неё подключаться не к чему —
+    // ядро не сможет стартовать. Родная кнопка в этом случае прячется;
+    // мы вместо этого блокируем кнопку и показываем подсказку.
+    final hasProfile = ref.watch(
+      profilesProvider.select((state) => state.isNotEmpty),
+    );
+
     return CommonScaffold(
       title: 'PRAXA',
       body: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 8),
-            _StatusLabel(isStart: isStart),
+            _StatusLabel(isStart: isStart, hasProfile: hasProfile),
             const SizedBox(height: 20),
             _ConnectButton(
               isStart: isStart,
-              onTap: () => _toggleConnection(isStart),
+              enabled: hasProfile,
+              onTap: hasProfile ? () => _toggleConnection(isStart) : null,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+            if (hasProfile) const PraxaPresets(),
+            const SizedBox(height: 20),
             const _SubscriptionCard(),
             const SizedBox(height: 12),
             const _ActiveServerCard(),
@@ -67,30 +86,51 @@ class PraxaHomeView extends ConsumerWidget {
 
 class _StatusLabel extends StatelessWidget {
   final bool isStart;
-  const _StatusLabel({required this.isStart});
+  final bool hasProfile;
+  const _StatusLabel({required this.isStart, required this.hasProfile});
 
   @override
   Widget build(BuildContext context) {
+    final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    final String statusText;
+    final Color statusColor;
+    if (!hasProfile) {
+      statusText = 'Нет подписки';
+      statusColor = onSurfaceVariant;
+    } else if (isStart) {
+      statusText = 'Защищено';
+      statusColor = _praxaBlue;
+    } else {
+      statusText = 'Не защищено';
+      statusColor = onSurfaceVariant;
+    }
+
     return Column(
       children: [
         Text(
           'Статус подключения',
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: onSurfaceVariant,
             fontSize: 13,
           ),
         ),
         const SizedBox(height: 2),
         Text(
-          isStart ? 'Защищено' : 'Не защищено',
+          statusText,
           style: TextStyle(
-            color: isStart
-                ? _praxaBlue
-                : Theme.of(context).colorScheme.onSurfaceVariant,
+            color: statusColor,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
+        if (!hasProfile) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Добавьте подписку во вкладке «Профиль»',
+            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+          ),
+        ],
       ],
     );
   }
@@ -98,13 +138,29 @@ class _StatusLabel extends StatelessWidget {
 
 class _ConnectButton extends StatelessWidget {
   final bool isStart;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback? onTap;
 
-  const _ConnectButton({required this.isStart, required this.onTap});
+  const _ConnectButton({
+    required this.isStart,
+    required this.enabled,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
+    final ringColor = !enabled
+        ? onSurfaceVariant.withValues(alpha: 0.25)
+        : isStart
+            ? _praxaBlue
+            : onSurfaceVariant.withValues(alpha: 0.4);
+    final iconColor = !enabled
+        ? onSurfaceVariant.withValues(alpha: 0.4)
+        : isStart
+            ? _praxaBlue
+            : onSurfaceVariant;
+
     return Center(
       child: GestureDetector(
         onTap: onTap,
@@ -116,7 +172,9 @@ class _ConnectButton extends StatelessWidget {
             shape: BoxShape.circle,
             color: Colors.black.withValues(alpha: 0.2),
             border: Border.all(
-              color: isStart ? _praxaBlue.withValues(alpha: 0.15) : Colors.transparent,
+              color: isStart && enabled
+                  ? _praxaBlue.withValues(alpha: 0.15)
+                  : Colors.transparent,
               width: 1,
             ),
           ),
@@ -127,7 +185,7 @@ class _ConnectButton extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isStart ? _praxaBlue : onSurfaceVariant.withValues(alpha: 0.4),
+                  color: ringColor,
                   width: 2,
                 ),
               ),
@@ -137,13 +195,19 @@ class _ConnectButton extends StatelessWidget {
                   Icon(
                     Icons.power_settings_new_rounded,
                     size: 46,
-                    color: isStart ? _praxaBlue : onSurfaceVariant,
+                    color: iconColor,
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    isStart ? 'Отключить' : 'Подключить',
+                    !enabled
+                        ? 'Нет подписки'
+                        : isStart
+                            ? 'Отключить'
+                            : 'Подключить',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
+                      color: !enabled
+                          ? onSurfaceVariant
+                          : Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
