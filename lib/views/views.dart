@@ -1,3 +1,4 @@
+
 export 'about.dart';
 export 'access.dart';
 export 'application_setting.dart';
@@ -12,7 +13,9 @@ export 'profiles/profiles.dart';
 export 'proxies/proxies.dart';
 export 'resources.dart';
 export 'tools.dart';
-
+ 
 export 'praxa/praxa_home.dart';
 export 'praxa/praxa_servers.dart';
 export 'praxa/praxa_presets.dart';
+export 'praxa/praxa_ru_rules.dart';
+ 
